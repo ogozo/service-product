@@ -5,6 +5,8 @@ go 1.24.6
 require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/ogozo/proto-definitions v0.0.0-20250810175126-26cd15135691
+	github.com/spf13/viper v1.20.1
+	github.com/streadway/amqp v1.1.0
 	google.golang.org/grpc v1.74.2
 )
 
@@ -25,7 +27,6 @@ require (
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	github.com/spf13/viper v1.20.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

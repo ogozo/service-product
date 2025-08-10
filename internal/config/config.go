@@ -8,6 +8,7 @@ import (
 type Config struct {
 	GRPCPort      string `mapstructure:"GRPC_PORT"`
 	DatabaseURL   string `mapstructure:"DATABASE_URL"`
+	RabbitMQURL   string `mapstructure:"RABBITMQ_URL"`
 }
 
 var AppConfig *Config
