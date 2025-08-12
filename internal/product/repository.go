@@ -37,7 +37,6 @@ func (r *Repository) GetProductByID(ctx context.Context, id string) (*pb.Product
 	return &p, nil
 }
 
-// UpdateStockInTx, ürün stoklarını tek bir transaction içinde günceller.
 func (r *Repository) UpdateStockInTx(ctx context.Context, items []*pb_order.OrderItem) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -45,11 +44,8 @@ func (r *Repository) UpdateStockInTx(ctx context.Context, items []*pb_order.Orde
 	}
 	defer tx.Rollback(ctx)
 
-	// Her bir ürün için stoğu kontrol et ve güncelle.
 	for _, item := range items {
 		var currentStock int32
-		// Önce mevcut stoğu al ve satırı kilitle (FOR UPDATE).
-		// Bu, aynı anda iki siparişin aynı üründen stok düşmesini engeller.
 		err := tx.QueryRow(ctx, "SELECT stock_quantity FROM products WHERE id = $1 FOR UPDATE", item.ProductId).Scan(&currentStock)
 		if err != nil {
 			return fmt.Errorf("failed to get stock for product %s: %w", item.ProductId, err)
@@ -59,7 +55,6 @@ func (r *Repository) UpdateStockInTx(ctx context.Context, items []*pb_order.Orde
 			return fmt.Errorf("insufficient stock for product %s: available %d, requested %d", item.ProductId, currentStock, item.Quantity)
 		}
 
-		// Stoğu güncelle.
 		newStock := currentStock - item.Quantity
 		_, err = tx.Exec(ctx, "UPDATE products SET stock_quantity = $1 WHERE id = $2", newStock, item.ProductId)
 		if err != nil {
@@ -67,6 +62,5 @@ func (r *Repository) UpdateStockInTx(ctx context.Context, items []*pb_order.Orde
 		}
 	}
 
-	// Her şey başarılıysa, transaction'ı onayla.
 	return tx.Commit(ctx)
 }

@@ -26,11 +26,9 @@ func (s *Service) GetProduct(ctx context.Context, id string) (*pb.Product, error
 	return s.repo.GetProductByID(ctx, id)
 }
 
-// HandleOrderCreatedEvent, Saga'nın bir sonraki adımıdır.
 func (s *Service) HandleOrderCreatedEvent(event broker.OrderCreatedEvent) {
 	log.Printf("Processing OrderCreated event for order %s", event.OrderID)
 
-	// Stokları güncellemeye çalış.
 	err := s.repo.UpdateStockInTx(context.Background(), event.Items)
 
 	resultEvent := broker.StockUpdateResultEvent{
@@ -38,17 +36,14 @@ func (s *Service) HandleOrderCreatedEvent(event broker.OrderCreatedEvent) {
 	}
 
 	if err != nil {
-		// BAŞARISIZ: Stok güncelleme başarısız oldu.
 		log.Printf("❌ Stock update FAILED for order %s: %v", event.OrderID, err)
 		resultEvent.Success = false
 		resultEvent.Reason = err.Error()
 	} else {
-		// BAŞARILI: Stok güncelleme başarılı.
 		log.Printf("✅ Stock update SUCCESSFUL for order %s", event.OrderID)
 		resultEvent.Success = true
 	}
 
-	// Sonucu yayınla.
 	if err := s.broker.PublishStockUpdateResult(resultEvent); err != nil {
 		log.Printf("CRITICAL: Failed to publish StockUpdateResult event for order %s: %v", event.OrderID, err)
 	}

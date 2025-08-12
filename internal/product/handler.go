@@ -18,7 +18,6 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) CreateProduct(ctx context.Context, req *pb.CreateProductRequest) (*pb.CreateProductResponse, error) {
-	// Gelen isteği, servisin anladığı Product tipine dönüştürelim
 	productToCreate := &pb.Product{
 		Name:          req.Name,
 		Description:   req.Description,
