@@ -6,7 +6,7 @@ import (
 
 	pb_order "github.com/ogozo/proto-definitions/gen/go/order"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/ogozo/proto-definitions/gen/go/product"
 )
 
