@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	pb_order "github.com/ogozo/proto-definitions/gen/go/order"
-
 	"github.com/jackc/pgx/v5/pgxpool"
+	pb_order "github.com/ogozo/proto-definitions/gen/go/order"
 	pb "github.com/ogozo/proto-definitions/gen/go/product"
 )
 

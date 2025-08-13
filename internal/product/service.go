@@ -4,9 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/ogozo/service-product/internal/broker"
-
 	pb "github.com/ogozo/proto-definitions/gen/go/product"
+	"github.com/ogozo/service-product/internal/broker"
 )
 
 type Service struct {
@@ -26,10 +25,10 @@ func (s *Service) GetProduct(ctx context.Context, id string) (*pb.Product, error
 	return s.repo.GetProductByID(ctx, id)
 }
 
-func (s *Service) HandleOrderCreatedEvent(event broker.OrderCreatedEvent) {
+func (s *Service) HandleOrderCreatedEvent(ctx context.Context, event broker.OrderCreatedEvent) {
 	log.Printf("Processing OrderCreated event for order %s", event.OrderID)
 
-	err := s.repo.UpdateStockInTx(context.Background(), event.Items)
+	err := s.repo.UpdateStockInTx(ctx, event.Items)
 
 	resultEvent := broker.StockUpdateResultEvent{
 		OrderID: event.OrderID,
@@ -44,7 +43,7 @@ func (s *Service) HandleOrderCreatedEvent(event broker.OrderCreatedEvent) {
 		resultEvent.Success = true
 	}
 
-	if err := s.broker.PublishStockUpdateResult(resultEvent); err != nil {
+	if err := s.broker.PublishStockUpdateResult(ctx, resultEvent); err != nil {
 		log.Printf("CRITICAL: Failed to publish StockUpdateResult event for order %s: %v", event.OrderID, err)
 	}
 }
