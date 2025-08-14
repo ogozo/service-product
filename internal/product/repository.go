@@ -31,18 +31,15 @@ func (r *Repository) CreateProduct(ctx context.Context, p *pb.Product) (*pb.Prod
 }
 
 func (r *Repository) GetProductByID(ctx context.Context, id string) (*pb.Product, error) {
-	// 1. Önce Cache'i Kontrol Et
 	productKey := fmt.Sprintf("product:%s", id)
 	cachedProductJSON, err := r.rdb.Get(ctx, productKey).Result()
 	if err == nil {
-		// Cache'de bulundu (Cache Hit)
 		var p pb.Product
 		if err := json.Unmarshal([]byte(cachedProductJSON), &p); err == nil {
 			return &p, nil
 		}
 	}
 
-	// 2. Cache'de bulunamadı veya bir hata oluştu (Cache Miss), veritabanına git
 	var p pb.Product
 	query := `SELECT id, name, description, price, stock_quantity FROM products WHERE id = $1`
 	err = r.db.QueryRow(ctx, query, id).Scan(&p.Id, &p.Name, &p.Description, &p.Price, &p.StockQuantity)
@@ -50,10 +47,8 @@ func (r *Repository) GetProductByID(ctx context.Context, id string) (*pb.Product
 		return nil, err
 	}
 
-	// 3. Veritabanından gelen sonucu Cache'e yaz
 	productJSON, err := json.Marshal(&p)
 	if err == nil {
-		// Cache'de 5 dakika boyunca sakla
 		r.rdb.Set(ctx, productKey, productJSON, 5*time.Minute)
 	}
 

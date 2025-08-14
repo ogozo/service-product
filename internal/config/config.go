@@ -13,6 +13,7 @@ type Config struct {
 	OtelExporterEndpoint string `mapstructure:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 	OtelServiceName      string `mapstructure:"OTEL_SERVICE_NAME"`
 	RedisURL             string `mapstructure:"REDIS_URL"`
+	MetricsPort             string `mapstructure:"METRICS_PORT"`
 }
 
 var AppConfig *Config
