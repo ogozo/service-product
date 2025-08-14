@@ -14,6 +14,8 @@ import (
 	"github.com/ogozo/service-product/internal/config"
 	"github.com/ogozo/service-product/internal/observability"
 	"github.com/ogozo/service-product/internal/product"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
@@ -45,7 +47,21 @@ func main() {
 		log.Fatalf("Failed to declare exchange: %v", err)
 	}
 	log.Println("RabbitMQ broker connected.")
-	
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisURL,
+	})
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		log.Fatalf("failed to instrument redis tracing: %v", err)
+	}
+	if err := redisotel.InstrumentMetrics(rdb); err != nil {
+		log.Fatalf("failed to instrument redis metrics: %v", err)
+	}
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Unable to connect to Redis: %v", err)
+	}
+	log.Println("Redis connection successful, with OTel instrumentation.")
+
 	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to parse pgx config: %v", err)
@@ -65,7 +81,7 @@ func main() {
 
 	log.Println("Database connection successful for product service, with OTel instrumentation.")
 
-	productRepo := product.NewRepository(dbpool)
+	productRepo := product.NewRepository(dbpool, rdb)
 	productService := product.NewService(productRepo, br)
 	productHandler := product.NewHandler(productService)
 
