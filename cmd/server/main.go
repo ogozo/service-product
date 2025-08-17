@@ -2,16 +2,19 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ogozo/proto-definitions/gen/go/product"
 	"github.com/ogozo/service-product/internal/broker"
 	"github.com/ogozo/service-product/internal/config"
+	"github.com/ogozo/service-product/internal/healthcheck"
 	"github.com/ogozo/service-product/internal/logging"
 	"github.com/ogozo/service-product/internal/observability"
 	internalProduct "github.com/ogozo/service-product/internal/product"
@@ -59,41 +62,45 @@ func main() {
 
 	startMetricsServer(logger, cfg.MetricsPort)
 
-	br, err := broker.NewBroker(cfg.RabbitMQURL)
-	if err != nil {
-		logger.Fatal("failed to create broker", zap.Error(err))
-	}
+	var br *broker.Broker
+	healthcheck.ConnectWithRetry(ctx, "RabbitMQ", 5, 2*time.Second, func() error {
+		var err error
+		br, err = broker.NewBroker(cfg.RabbitMQURL)
+		return err
+	})
 	defer br.Close()
 	if err := br.DeclareStockUpdateExchange(); err != nil {
 		logger.Fatal("failed to declare exchange", zap.Error(err))
 	}
-	logger.Info("RabbitMQ broker connected")
 
-	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisURL})
+	var rdb *redis.Client
+	healthcheck.ConnectWithRetry(ctx, "Redis", 5, 2*time.Second, func() error {
+		rdb = redis.NewClient(&redis.Options{Addr: cfg.RedisURL})
+		return rdb.Ping(ctx).Err()
+	})
 	if err := redisotel.InstrumentTracing(rdb); err != nil {
 		logger.Fatal("failed to instrument redis tracing", zap.Error(err))
 	}
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		logger.Fatal("unable to connect to Redis", zap.Error(err))
-	}
-	logger.Info("Redis connection successful, with OTel instrumentation")
 
-	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
-	if err != nil {
-		logger.Fatal("failed to parse pgx config", zap.Error(err))
-	}
-	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
-
-	dbpool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		logger.Fatal("unable to connect to database", zap.Error(err))
-	}
+	var dbpool *pgxpool.Pool
+	healthcheck.ConnectWithRetry(ctx, "PostgreSQL", 5, 2*time.Second, func() error {
+		var err error
+		poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse pgx config: %w", err)
+		}
+		poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
+		dbpool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+		if err != nil {
+			return err
+		}
+		return dbpool.Ping(ctx)
+	})
 	defer dbpool.Close()
 
 	if err := otelpgx.RecordStats(dbpool, otelpgx.WithStatsMeterProvider(otel.GetMeterProvider())); err != nil {
 		logger.Error("unable to record database stats", zap.Error(err))
 	}
-	logger.Info("database connection successful, with OTel instrumentation")
 
 	productRepo := internalProduct.NewRepository(dbpool, rdb)
 	productService := internalProduct.NewService(productRepo, br)
