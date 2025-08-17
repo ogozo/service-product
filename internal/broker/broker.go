@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	pb_order "github.com/ogozo/proto-definitions/gen/go/order"
+	"github.com/ogozo/service-product/internal/logging"
 	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 type TraceCarrier map[string]interface{}
@@ -109,10 +110,10 @@ func (b *Broker) StartOrderCreatedConsumer(handler func(ctx context.Context, eve
 				),
 			)
 
-			log.Printf("📩 Received OrderCreated event: %s", d.Body)
+			logging.Info(spanCtx, "received OrderCreated event", zap.String("body", string(d.Body)))
 			var event OrderCreatedEvent
 			if err := json.Unmarshal(d.Body, &event); err != nil {
-				log.Printf("Error unmarshalling event: %v", err)
+				logging.Error(spanCtx, "failed to unmarshal event", err)
 				span.RecordError(err)
 				span.SetStatus(codes.Error, "failed to unmarshal message")
 				span.End()
@@ -123,7 +124,7 @@ func (b *Broker) StartOrderCreatedConsumer(handler func(ctx context.Context, eve
 			span.End()
 		}
 	}()
-	log.Println("👂 Listening for OrderCreated events...")
+	logging.Info(context.Background(), "listening for OrderCreated events")
 	return nil
 }
 
@@ -162,7 +163,7 @@ func (b *Broker) PublishStockUpdateResult(ctx context.Context, event StockUpdate
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
-	log.Printf("✅ Published StockUpdateResult event for order %s (Success: %t)", event.OrderID, event.Success)
+	logging.Info(spanCtx, "published StockUpdateResult event", zap.String("order_id", event.OrderID), zap.Bool("success", event.Success))
 	return nil
 }
 

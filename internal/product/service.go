@@ -2,10 +2,11 @@ package product
 
 import (
 	"context"
-	"log"
 
 	pb "github.com/ogozo/proto-definitions/gen/go/product"
 	"github.com/ogozo/service-product/internal/broker"
+	"github.com/ogozo/service-product/internal/logging"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -26,7 +27,7 @@ func (s *Service) GetProduct(ctx context.Context, id string) (*pb.Product, error
 }
 
 func (s *Service) HandleOrderCreatedEvent(ctx context.Context, event broker.OrderCreatedEvent) {
-	log.Printf("Processing OrderCreated event for order %s", event.OrderID)
+	logging.Info(ctx, "processing OrderCreated event", zap.String("order_id", event.OrderID))
 
 	err := s.repo.UpdateStockInTx(ctx, event.Items)
 
@@ -35,15 +36,15 @@ func (s *Service) HandleOrderCreatedEvent(ctx context.Context, event broker.Orde
 	}
 
 	if err != nil {
-		log.Printf("❌ Stock update FAILED for order %s: %v", event.OrderID, err)
+		logging.Error(ctx, "stock update FAILED", err, zap.String("order_id", event.OrderID))
 		resultEvent.Success = false
 		resultEvent.Reason = err.Error()
 	} else {
-		log.Printf("✅ Stock update SUCCESSFUL for order %s", event.OrderID)
+		logging.Info(ctx, "stock update SUCCESSFUL", zap.String("order_id", event.OrderID))
 		resultEvent.Success = true
 	}
 
 	if err := s.broker.PublishStockUpdateResult(ctx, resultEvent); err != nil {
-		log.Printf("CRITICAL: Failed to publish StockUpdateResult event for order %s: %v", event.OrderID, err)
+		logging.Error(ctx, "CRITICAL: failed to publish StockUpdateResult event", err, zap.String("order_id", event.OrderID))
 	}
 }
